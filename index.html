@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AELIIA - Votre confident IA, votre meilleur allié.</title>
+    
+    <!-- Scripts CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Firebase config -->
+    <script>
+        window.__firebase_config = JSON.stringify({
+            apiKey: "AIzaSyDs9lnVLjtqcDf5DCvsJ8ifBzMZ7sMra3k",
+            authDomain: "aeliia-c7ab3.firebaseapp.com",
+            projectId: "aeliia-c7ab3",
+            storageBucket: "aeliia-c7ab3.firebasestorage.app",
+            messagingSenderId: "48104749888",
+            appId: "1:48104749888:web:1d95106f30b901547c58a5",
+            measurementId: "G-RCN4ELQXY1"
+        });
+        window.__app_id = "aeliia-platform";
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        body { background-color: #020202; color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; margin: 0; }
+        @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .animate-scroll { animation: scroll 35s linear infinite; }
+        .mask-gradient-x { mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent); }
+        .neural-glow { background: radial-gradient(circle at 50% 30%, rgba(124, 58, 237, 0.15) 0%, transparent 70%); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .pulse-red { animation: pulse-red 2s infinite; }
+        @keyframes pulse-red {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .typing-dot { width: 5px; height: 5px; background: #7c3aed; border-radius: 50%; animation: typing 1.4s infinite ease-in-out; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, increment, arrayUnion, getDoc, collection, query, orderBy, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+        window.FirebaseAPI = {
+            initializeApp, getAuth, signInAnonymously, onAuthStateChanged, 
+            signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithCustomToken,
+            getFirestore, doc, setDoc, onSnapshot, updateDoc, increment, arrayUnion, getDoc, collection, query, orderBy, addDoc, serverTimestamp
+        };
+        window.dispatchEvent(new Event('firebase-api-ready'));
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const LucideIcon = ({ name, size = 24, className = "", color = "currentColor", fill = "none" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (window.lucide && iconRef.current) {
+                    const iconName = name.toLowerCase().replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                    iconRef.current.innerHTML = `<i data-lucide="${iconName}"></i>`;
+                    window.lucide.createIcons({
+                        attrs: { stroke: color, 'stroke-width': 2, width: size, height: size, class: className, fill: fill },
+                        icons: window.lucide.icons
+                    });
+                }
+            }, [name, size, className, color, fill]);
+            return <span ref={iconRef} className="inline-flex leading-none"></span>;
+        };
+
+        const PRICE_IDS = {
+            // Remplace par TES Price IDs Stripe (Dashboard > Produits > Prix)
+            pack10: "price_XXXXXXXXXXXX",
+            pack50: "price_XXXXXXXXXXXX",
+            pack100: "price_XXXXXXXXXXXX",
+            journalOnly: "price_XXXXXXXXXXXX"
+        };
+
+        const COACH_PROFILES = [
+            { id: 'manon', name: 'Manon', specialty: 'Dating & Love Expert', image: 'https://images.pexels.com/photos/8796458/pexels-photo-8796458.jpeg?auto=compress&cs=tinysrgb&w=600', description: 'Ta grande sœur de cœur. Cash sur les mecs, douce sur tes peines.', benefits: 'Gestion des "vu", décryptage des intentions, séduction naturelle.', color: 'text-pink-400', consultations: 5800 },
+            { id: 'thomas', name: 'Thomas', specialty: 'Charisme & Impact', image: 'https://images.pexels.com/photos/733500/pexels-photo-733500.jpeg?auto=compress&cs=tinysrgb&w=600', description: 'Ton mentor. Apprends à prendre ta place et à parler avec assurance.', benefits: 'Prise de parole, assertivité, leadership social, confiance en soi.', color: 'text-amber-400', consultations: 1700 },
+            { id: 'chloe', name: 'Chloé', specialty: 'Career & Mindset', image: 'https://images.pexels.com/photos/1587009/pexels-photo-1587009.jpeg?auto=compress&cs=tinysrgb&w=600', description: 'L\'alliée de tes ambitions pro. Pour doubler ton salaire.', benefits: 'Négociation, recadrage de collègue, gestion du stress au travail.', color: 'text-blue-400', consultations: 3890 },
+            { id: 'lea', name: 'Léa', specialty: 'Émotions & Vie', image: 'https://images.pexels.com/photos/18403502/pexels-photo-18403502.jpeg?auto=compress&cs=tinysrgb&w=600', description: 'Ton havre de paix. Experte pour sortir des relations toxiques.', benefits: 'Communication non-violente, apaisement, gestion des conflits familiaux.', color: 'text-emerald-400', consultations: 3240 }
+        ];
+
+        const SCENARIOS = {
+            amour: { 
+                title: "Amour", 
+                received: "Écoute, je ne sais plus où j'en suis. J'ai besoin de temps seul(e).", 
+                before: "Bah si c'est comme ça, oublie-moi ! Ciao. 👋", 
+                impactBefore: "Rupture brutale et regrets.",
+                after: "Je comprends ton besoin de clarté. Prends ce temps. Je suis là si tu veux en parler plus tard.",
+                impactAfter: "L'autre : 'Merci d'être si compréhensif(ve). Ça me touche.'",
+                finalResult: "Espace préservé & Dialogue maintenu"
+            },
+            famille: { 
+                title: "Famille", 
+                received: "Tu ne viens jamais aux repas de famille, tu t'en fiches de nous.", 
+                before: "Vous me saoulez avec vos histoires, j'ai une vie moi ! 😤", 
+                impactBefore: "Tensions extrêmes et isolement.",
+                after: "Je sais que c'est important. Mon travail me prend beaucoup de temps, mais je vais faire un effort pour le prochain.",
+                impactAfter: "L'autre : 'On t'attend avec impatience alors !'",
+                finalResult: "Lien familial restauré"
+            },
+            pro: { 
+                title: "Travail", 
+                received: "Ton rapport est incomplet, je m'attendais à mieux de ta part.", 
+                before: "C'est faux, j'ai tout mis dedans. Vous abusez.", 
+                impactBefore: "Image de manque de professionnalisme.",
+                after: "Merci pour ce retour constructif. Peux-tu me préciser les points manquants pour que je rectifie ?",
+                impactAfter: "Le patron : 'Bien sûr, voici les détails. Merci pour ta réactivité.'",
+                finalResult: "Crédit professionnel renforcé"
+            }
+        };
+
+        const REVIEWS_DATA = [
+            { text: "L'IA a complètement cerné mon problème dès la première phrase.", stars: 5 },
+            { text: "Indispensable pour mes négociations pro compliquées.", stars: 5 },
+            { text: "Je ne panique plus devant un 'vu' grâce à Manon.", stars: 4 },
+            { text: "Thomas m'a redonné une confiance incroyable en réunion.", stars: 5 },
+            { text: "Fini les regrets après un SMS impulsif envoyé trop vite.", stars: 5 },
+            { text: "Léa m'a aidé à sortir d'une relation toxique en 3 séances.", stars: 5 }
+        ];
+
+        const AuthModal = ({ isOpen, onClose, firebase }) => {
+            const [isRegistering, setIsRegistering] = useState(true);
+            const [email, setEmail] = useState("");
+            const [password, setPassword] = useState("");
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            if (!isOpen) return null;
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true); setError(null);
+                const { auth, db, appId, setDoc, doc, createUserWithEmailAndPassword, signInWithEmailAndPassword, serverTimestamp } = firebase;
+                try {
+                    if (isRegistering) {
+                        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+                        await setDoc(doc(db, "artifacts", appId, "users", userCred.user.uid, "profile", "data"), { 
+                            email, credits: 2, createdAt: serverTimestamp()
+                        }, { merge: true });
+                    } else { await signInWithEmailAndPassword(auth, email, password); }
+                    onClose();
+                } catch (err) { setError("Erreur d'authentification."); } finally { setLoading(false); }
+            };
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+                    <div className="bg-[#0a0a0a] border border-white/10 p-10 rounded-[2.5rem] w-full max-w-md relative shadow-2xl">
+                        <button onClick={onClose} className="absolute top-6 right-6 text-gray-500 hover:text-white"><LucideIcon name="X" /></button>
+                        <h2 className="text-2xl font-bold text-center mb-8">{isRegistering ? "Créer un compte" : "Connexion"}</h2>
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white outline-none focus:border-violet-500 transition-all font-sans" placeholder="votre@email.com" />
+                            <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white outline-none focus:border-violet-500 transition-all font-sans" placeholder="Mot de passe" />
+                            <button disabled={loading} className="w-full bg-white text-black font-bold py-4 rounded-2xl hover:bg-violet-100 transition-all uppercase tracking-widest text-xs">{loading ? "..." : (isRegistering ? "Récupérer mon accès gratuit" : "Entrer")}</button>
+                        </form>
+                        <button onClick={() => setIsRegistering(!isRegistering)} className="w-full mt-6 text-xs text-violet-400 hover:underline">{isRegistering ? "Déjà membre ? Se connecter" : "Nouveau ? Créer un compte"}</button>
+                    </div>
+                </div>
+            );
+        };
+
+        const PricingCard = ({ title, price, credits, priceId, pop = false, benefits = [], onCheckout }) => (
+            <div className={`p-8 rounded-[2.5rem] flex flex-col border transition-all duration-500 relative group ${pop ? 'bg-violet-900/10 border-violet-500 scale-105 shadow-2xl shadow-violet-500/20' : 'bg-white/5 border-white/5'}`}>
+                {pop && <div className="absolute top-0 right-0 bg-violet-500 text-[8px] font-black uppercase tracking-widest px-4 py-1 rounded-bl-xl shadow-lg">Plus avantageux</div>}
+                <h3 className="text-gray-500 font-bold mb-4 uppercase text-[10px] tracking-widest">{title}</h3>
+                <div className="text-4xl font-black mb-6 text-white tracking-tight">{price}</div>
+                <div className="bg-white/10 px-5 py-2 rounded-2xl mb-8 text-[10px] font-black text-violet-200 tracking-widest uppercase text-center">{credits}</div>
+                <ul className="text-left space-y-4 mb-10 flex-1">
+                   {benefits.map((b, i) => (
+                     <li key={i} className="flex items-center gap-3 text-xs text-slate-400">
+                       <LucideIcon name="Check" size={14} color="#10b981" />
+                       {b}
+                     </li>
+                   ))}
+                </ul>
+                <button
+                    onClick={() => onCheckout?.(priceId)}
+                    className="w-full py-4 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest hover:bg-violet-50 transition-all text-center shadow-xl active:scale-95 font-sans disabled:opacity-40"
+                    disabled={!priceId}
+                >
+                    Prendre ce pack
+                </button>
+            </div>
+        );
+        const App = () => {
+            const [firebase, setFirebase] = useState(null);
+            const [user, setUser] = useState(null);
+            const [userData, setUserData] = useState(null);
+            const [view, setView] = useState('landing'); 
+            const [activeScenario, setActiveScenario] = useState('amour');
+            const [selectedCoach, setSelectedCoach] = useState(null);
+            const [chatHistory, setChatHistory] = useState([]);
+            const [inputMessage, setInputMessage] = useState("");
+            const [flashInput, setFlashInput] = useState("");
+            const [analysisResult, setAnalysisResult] = useState(null);
+            const [isProcessing, setIsProcessing] = useState(false);
+            const [isAuthOpen, setIsAuthOpen] = useState(false);
+            const [visitorCount, setVisitorCount] = useState(8901);
+            const [timeLeft, setTimeLeft] = useState(0); 
+            const chatEndRef = useRef(null);
+            const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'aeliia-platform';
+            const startCheckout = async (priceId) => {
+                try {
+                    if (!priceId) return;
+                    if (!firebase || !user) { setIsAuthOpen(true); return; }
+
+                    // IMPORTANT: Checkout = côté serveur (Netlify Function) pour éviter d'exposer la clé secrète.
+                    const token = await firebase.auth.currentUser.getIdToken();
+                    const res = await fetch('/.netlify/functions/create-checkout-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ priceId })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data?.error || 'Erreur Checkout');
+                    if (data?.url) window.location.href = data.url;
+                } catch (e) {
+                    console.error(e);
+                    alert("Paiement indisponible. Réessaie dans 30 secondes.");
+                }
+            };
+
+
+            useEffect(() => {
+                const interval = setInterval(() => { setVisitorCount(prev => prev + Math.floor(Math.random() * 5) - 2); }, 4000);
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => {
+                const checkAPI = setInterval(async () => {
+                    if (window.FirebaseAPI) {
+                        clearInterval(checkAPI);
+                        const api = window.FirebaseAPI;
+                        try {
+                            const config = JSON.parse(window.__firebase_config || '{}');
+                            const app = api.initializeApp(config);
+                            const auth = api.getAuth(app);
+                            const db = api.getFirestore(app);
+                            setFirebase({ ...api, auth, db, appId });
+                            api.onAuthStateChanged(auth, (u) => {
+                                setUser(u);
+                                setView(u ? 'app' : 'landing');
+                                if (u) setIsAuthOpen(false);
+                            });
+                        } catch (err) { console.error(err); }
+                    }
+                }, 100);
+            }, []);
+
+            useEffect(() => {
+                if (!user || !firebase) return;
+                const { db, onSnapshot, doc } = firebase;
+                const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+                return onSnapshot(userRef, (snap) => {
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        setUserData(data);
+                        setTimeLeft((data.credits || 0) * 300);
+                    }
+                });
+            }, [user, firebase]);
+
+            useEffect(() => {
+                if (view !== 'landing' && timeLeft > 0) {
+                    const timer = setInterval(() => { setTimeLeft(prev => Math.max(0, prev - 1)); }, 1000);
+                    return () => clearInterval(timer);
+                }
+            }, [view, timeLeft]);
+
+            useEffect(() => {
+                if (!user || !selectedCoach || !firebase) return;
+                const { db, onSnapshot, collection, query, orderBy } = firebase;
+                const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'chats', selectedCoach.id, 'messages'), orderBy('timestamp', 'asc'));
+                return onSnapshot(q, (snap) => {
+                    const msgs = [];
+                    snap.forEach(d => msgs.push(d.data()));
+                    if (msgs.length === 0) setChatHistory([{ role: 'ai', text: `Bonjour ! Je suis ${selectedCoach.name}. Je t'écoute.` }]);
+                    else setChatHistory(msgs);
+                });
+            }, [user, selectedCoach, firebase]);
+
+            useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatHistory]);
+
+            const handleFlashAnalyze = async () => {
+                if (!flashInput.trim() || isProcessing || timeLeft <= 0) return;
+                setIsProcessing(true);
+                try {
+                    const apiKey = "";
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: `Analyse: "${flashInput}". Donne tone, intent, suggestion en JSON.` }] }],
+                            generationConfig: { responseMimeType: "application/json" }
+                        })
+                    });
+                    const data = await res.json();
+                    setAnalysisResult(JSON.parse(data.candidates[0].content.parts[0].text));
+                } catch (e) { console.error(e); } finally { setIsProcessing(false); }
+            };
+
+            const handleSendMessage = async () => {
+                if (!inputMessage.trim() || isProcessing || timeLeft <= 0 || !selectedCoach) return;
+                const msg = inputMessage;
+                setInputMessage("");
+                setIsProcessing(true);
+                const { db, collection, addDoc, serverTimestamp } = firebase;
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'chats', selectedCoach.id, 'messages'), {
+                        role: 'user', text: msg, timestamp: serverTimestamp()
+                    });
+                    const apiKey = "";
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: `Tu es ${selectedCoach.name}. Réponds à: "${msg}".` }] }] })
+                    });
+                    const data = await res.json();
+                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'chats', selectedCoach.id, 'messages'), {
+                        role: 'ai', text: data.candidates[0].content.parts[0].text, timestamp: serverTimestamp()
+                    });
+                } catch (e) { console.error(e); } finally { setIsProcessing(false); }
+            };
+
+            const formatDisplayTime = (seconds) => {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${m}:${s < 10 ? '0' : ''}${s}`;
+            };
+
+            const LandingPage = () => (
+                <div className="relative min-h-screen">
+                    <div className="neural-glow fixed inset-0 pointer-events-none -z-10" />
+                    
+                    <nav className="fixed w-full z-50 bg-black/60 backdrop-blur-xl border-b border-white/5 h-20 flex items-center">
+                        <div className="max-w-7xl mx-auto px-6 w-full flex justify-between items-center">
+                            <div className="flex items-center gap-6">
+                                <div className="text-xl font-black tracking-tighter flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center shadow-lg"><LucideIcon name="Cpu" size={18} /></div>
+                                    AELIIA
+                                </div>
+                                <div className="hidden md:flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full pulse-red"></div>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-white/70">{visitorCount.toLocaleString()} EN DIRECT</span>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsAuthOpen(true)} className="bg-white text-black px-6 py-2 rounded-full font-bold text-sm shadow-xl active:scale-95 transition-all">Connexion</button>
+                        </div>
+                    </nav>
+
+                    <main className="max-w-7xl mx-auto px-6 pt-48 text-center pb-20">
+                        <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 px-4 py-1.5 rounded-full text-violet-400 text-[10px] font-black uppercase tracking-widest mb-8">Intelligence Flash v2.5</div>
+                        <h1 className="text-5xl md:text-8xl font-black mb-10 leading-[0.9] tracking-tighter gradient-text">Ne restez plus jamais <br/> sans voix.</h1>
+                        <p className="max-w-3xl mx-auto text-lg md:text-xl text-slate-400 mb-16 leading-relaxed opacity-80">Maîtrisez chaque interaction sociale. Désamorcez les tensions et obtenez enfin les réponses que vous méritez.</p>
+                        <button onClick={() => setIsAuthOpen(true)} className="px-12 py-5 bg-white text-black rounded-full font-black text-xl hover:scale-105 transition-all shadow-[0_0_50px_rgba(255,255,255,0.1)] mb-32">Essayer gratuitement</button>
+
+                        {/* Partner Scroll */}
+                        <div className="w-full overflow-hidden mask-gradient-x mb-40 opacity-20"><div className="flex whitespace-nowrap animate-scroll gap-20 items-center">{[1,2,3,4,5,6].map((idx) => (<span key={idx} className="text-2xl font-black tracking-tighter italic">AELIIA NEURAL • PSYCHOLOGIE POSITIVE • EXPERTISE 24/7</span>))}</div></div>
+
+                        {/* Pourquoi nous ? COMPLET */}
+                        <section id="choose" className="mb-40">
+                            <h2 className="text-4xl font-black mb-4 uppercase italic tracking-tighter">Pourquoi nous ?</h2>
+                            <p className="text-slate-500 mb-20 text-lg">La précision d'une IA, la finesse d'un expert humain.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[
+                                    { icon: "ShieldCheck", title: "Confidentialité Totale", desc: "Vos échanges sont cryptés et anonymisés. Aucune donnée n'est revendue." },
+                                    { icon: "Brain", title: "Psychologie Appliquée", desc: "Modèles basés sur la CNV et la psychologie comportementale pour des résultats concrets." },
+                                    { icon: "Zap", title: "Réponse Instantanée", desc: "Besoin d'aide pour une relance à 2h du matin ? Nous sommes là en 3 secondes." },
+                                    { icon: "Diamond", title: "Coût Drastique", desc: "Accédez à une expertise d'élite pour 20x moins cher qu'une séance de coaching classique." },
+                                    { icon: "MessagesSquare", title: "Multimodalité", desc: "Décryptage de SMS, emails ou même de vocaux. Rien n'échappe à AELIIA." },
+                                    { icon: "Star", title: "Précision Neutre", desc: "Contrairement à un ami, AELIIA reste neutre pour vous donner le conseil le plus juste." }
+                                ].map((item, i) => (
+                                    <div key={i} className="glass p-8 rounded-[2.5rem] text-left hover:border-violet-500/40 transition-all group">
+                                        <div className="w-12 h-12 bg-violet-600/10 rounded-2xl flex items-center justify-center text-violet-400 mb-6 group-hover:scale-110 transition-transform"><LucideIcon name={item.icon} size={24}/></div>
+                                        <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                                        <p className="text-sm text-slate-400 leading-relaxed">{item.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* L'Effet AELIIA */}
+                        <section className="mb-40">
+                            <h2 className="text-3xl font-black mb-12 uppercase italic tracking-tighter">L'Effet AELIIA</h2>
+                            <div className="flex justify-center gap-3 mb-10 flex-wrap">
+                                {Object.keys(SCENARIOS).map(k => (
+                                    <button key={k} onClick={() => setActiveScenario(k)} className={`px-8 py-3 rounded-full text-[10px] font-black border uppercase transition-all ${activeScenario === k ? 'bg-violet-600 border-violet-500 shadow-lg' : 'bg-white/5 border-white/10 text-gray-500'}`}>{SCENARIOS[k].title}</button>
+                                ))}
+                            </div>
+                            <div className="max-w-5xl mx-auto space-y-4">
+                                <div className="glass p-6 rounded-[2rem] text-left border-violet-500/20 shadow-xl shadow-violet-900/5">
+                                    <div className="text-[10px] font-black text-violet-400 uppercase mb-2 tracking-widest flex items-center gap-2"><LucideIcon name="MessageCircle" size={14}/> Message Reçu (Base)</div>
+                                    <p className="text-lg italic text-white/80 leading-relaxed font-serif">"{SCENARIOS[activeScenario].received}"</p>
+                                </div>
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    <div className="flex-1 glass p-8 rounded-[2.5rem] border-white/10 text-left bg-white/2">
+                                        <div className="text-[10px] font-black text-white/30 uppercase mb-4 tracking-widest flex items-center gap-2"><LucideIcon name="XCircle" size={14}/> IA Standard</div>
+                                        <p className="text-sm text-white/50 italic leading-relaxed">"{SCENARIOS[activeScenario].before}"</p>
+                                        <div className="mt-6 text-[9px] font-black text-rose-500 uppercase">Issue probable : {SCENARIOS[activeScenario].impactBefore}</div>
+                                    </div>
+                                    <div className="flex-1 p-8 rounded-[2.5rem] border border-violet-500/30 text-left relative overflow-hidden bg-violet-600/5 shadow-2xl">
+                                        <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/10 blur-3xl"></div>
+                                        <div className="text-[10px] font-black text-violet-400 uppercase mb-4 tracking-widest flex items-center gap-2"><LucideIcon name="CheckCircle" size={14}/> AELIIA Neural</div>
+                                        <p className="text-sm text-white leading-relaxed font-medium italic">"{SCENARIOS[activeScenario].after}"</p>
+                                        <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                                            <div className="text-[9px] font-black text-emerald-400 uppercase mb-1">Réponse de l'autre :</div>
+                                            <p className="text-xs text-emerald-100 italic">{SCENARIOS[activeScenario].impactAfter}</p>
+                                        </div>
+                                        <div className="mt-3 text-[10px] font-black text-white uppercase tracking-tighter opacity-40">Bilan : {SCENARIOS[activeScenario].finalResult}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Coachs */}
+                        <section id="coaches" className="mb-40">
+                            <h2 className="text-4xl font-black mb-4 uppercase italic tracking-tighter">Nos Experts Disponibles</h2>
+                            <p className="text-slate-500 mb-20 text-lg">Choisissez votre allié stratégique selon votre besoin du moment.</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                                {COACH_PROFILES.map(c => (
+                                    <div key={c.id} onClick={() => setIsAuthOpen(true)} className="glass p-6 rounded-[3rem] cursor-pointer group hover:border-violet-500/50 transition-all flex flex-col shadow-xl">
+                                        <div className="relative overflow-hidden rounded-[2.5rem] mb-6 aspect-[3/4]">
+                                            <img src={c.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale-[20%] group-hover:grayscale-0"/>
+                                            <div className="absolute top-4 right-4 bg-red-600 px-4 py-1.5 rounded-full text-[10px] font-black animate-pulse shadow-lg flex items-center gap-1"><span className="w-1 h-1 bg-white rounded-full"></span>LIVE</div>
+                                        </div>
+                                        <h3 className="font-bold text-xl mb-1 text-left">{c.name}</h3>
+                                        <p className={`text-[9px] uppercase font-black tracking-widest mb-4 italic text-left ${c.color}`}>{c.specialty}</p>
+                                        <div className="mb-6 text-left border-t border-white/5 pt-4">
+                                            <p className="text-[8px] font-black text-violet-400 uppercase tracking-widest mb-2">Ce que je t'apporte :</p>
+                                            <p className="text-[11px] text-slate-400 leading-snug">{c.benefits}</p>
+                                        </div>
+                                        <div className="mt-auto flex items-center justify-between text-[10px] font-black text-violet-400">
+                                            <span className="bg-violet-500/5 px-3 py-1 rounded-lg uppercase tracking-tight">{c.consultations.toLocaleString()} SÉANCES RÉALISÉES</span>
+                                            <LucideIcon name="ChevronRight" size={16} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* L'Alternative Augmentée - PLUS COMPLET & APRÈS COACHS */}
+                        <section className="mb-40 py-24 bg-violet-600/5 rounded-[4rem] border border-white/5 relative overflow-hidden">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent"></div>
+                            <div className="max-w-5xl mx-auto px-10 grid md:grid-cols-2 gap-20 items-center">
+                                <div className="text-left space-y-8">
+                                    <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-tight">L'Alternative <br/> Augmentée.</h2>
+                                    <div className="w-20 h-1.5 bg-violet-600 rounded-full"></div>
+                                    <p className="text-slate-400 text-lg font-medium leading-relaxed">
+                                        Pourquoi AELIIA surpasse le coaching classique ? Nous avons fusionné l'IA neuronale avec l'élite du savoir-faire humain. 
+                                        Là où un coach humain est limité par son agenda, son prix et ses biais personnels, AELIIA offre une perfection constante.
+                                    </p>
+                                    <div className="space-y-4">
+                                        <div className="flex gap-4 items-start"><LucideIcon name="Zap" size={20} className="text-violet-400 shrink-0"/><p className="text-sm text-slate-300 font-bold">Immédiateté : Zéro délai de rendez-vous. Réponse en 3 secondes.</p></div>
+                                        <div className="flex gap-4 items-start"><LucideIcon name="Target" size={20} className="text-violet-400 shrink-0"/><p className="text-sm text-slate-300 font-bold">Zéro Jugement : Exprimez vos doutes les plus intimes sans crainte.</p></div>
+                                        <div className="flex gap-4 items-start"><LucideIcon name="Shield" size={20} className="text-violet-400 shrink-0"/><p className="text-sm text-slate-300 font-bold">Sécurité Militaire : Vos secrets restent les vôtres, protégés par cryptage.</p></div>
+                                    </div>
+                                </div>
+                                <div className="glass p-10 rounded-[3rem] border-violet-500/20 shadow-2xl relative">
+                                    <h3 className="text-2xl font-black italic mb-10 text-center uppercase">Le Match</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-4"><span className="text-xs text-slate-500 font-bold uppercase">Prix Moyen Séance</span><div className="flex items-center gap-4"><span className="text-[10px] line-through opacity-40">120€</span><span className="text-emerald-400 font-black">4.99€</span></div></div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-4"><span className="text-xs text-slate-500 font-bold uppercase">Disponibilité</span><div className="flex items-center gap-4"><span className="text-[10px] opacity-40">Bureau</span><span className="text-violet-400 font-black uppercase">24h/24 - 7j/7</span></div></div>
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-4"><span className="text-xs text-slate-500 font-bold uppercase">Vitesse d'Analyse</span><div className="flex items-center gap-4"><span className="text-[10px] opacity-40">3 Jours</span><span className="text-violet-400 font-black uppercase">3 Secondes</span></div></div>
+                                        <div className="flex justify-between items-center"><span className="text-xs text-slate-500 font-bold uppercase">Sincérité</span><div className="flex items-center gap-4"><span className="text-[10px] opacity-40">Sociale</span><span className="text-emerald-400 font-black uppercase">Radicale</span></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Avis Clients */}
+                        <section className="mb-40">
+                             <div className="inline-flex items-center gap-2 mb-6"><div className="flex">{[1,2,3,4,5].map(s => <LucideIcon key={s} name="Star" size={16} color="#fbbf24" fill="#fbbf24" />)}</div><span className="text-sm font-black tracking-widest text-white/50">NOTE CLIENT : 4.9/5</span></div>
+                             <div className="w-full overflow-hidden mask-gradient-x bg-white/2 py-10 border-y border-white/5">
+                                <div className="flex animate-scroll gap-8 whitespace-nowrap">
+                                    {[...REVIEWS_DATA, ...REVIEWS_DATA].map((r, i) => (
+                                        <div key={i} className="inline-block glass p-8 rounded-[2.5rem] min-w-[320px] text-left">
+                                            <div className="flex gap-1 mb-3">{Array(r.stars).fill(0).map((_, idx) => (<LucideIcon key={idx} name="Star" size={12} color="#fbbf24" fill="#fbbf24" />))}</div>
+                                            <span className="italic font-medium text-slate-200 block whitespace-normal text-sm leading-relaxed">"{r.text}"</span>
+                                        </div>
+                                    ))}
+                                </div>
+                             </div>
+                        </section>
+
+                        {/* Tarifs */}
+                        <section id="pricing" className="mb-40">
+                            <h2 className="text-4xl font-black mb-16 uppercase italic tracking-tighter leading-none">Accès Instantané</h2>
+                            <div className="grid md:grid-cols-3 gap-8">
+                                <PricingCard title="Pack Découverte" price="4.99€" credits="12 Crédits (+1h)" benefits={["Accès aux 4 coachs IA", "Analyseur Neural illimité", "Support 24/7", "Crédits à vie"]} priceId={PRICE_IDS.pack10} onCheckout={startCheckout} />
+                                <PricingCard title="Pack Sérénité" price="9.99€" credits="60 Crédits (+5h)" pop={true} benefits={["Neural-3 Ultra Rapide", "Sauvegarde historique", "Priorité réseau", "Utilisation sans limites"]} priceId={PRICE_IDS.pack50} onCheckout={startCheckout} />
+                                <PricingCard title="Pack Expert" price="19.99€" credits="120 Crédits (+10h)" benefits={["Support VIP direct", "Accès bêta nouvelles IA", "Export PDF illimité", "Temps doublé"]} priceId={PRICE_IDS.pack100} onCheckout={startCheckout} />
+                            </div>
+                        </section>
+
+                        <footer className="pt-20 border-t border-white/5 opacity-30 text-[10px] font-black uppercase tracking-[0.5em]">© 2026 AELIIA AI • Labélisé Psychologie Positive</footer>
+                    </main>
+                    <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} firebase={firebase} />
+                </div>
+            );
+
+            if (view !== 'landing') {
+                return (
+                    <div className="min-h-screen bg-[#020202] text-white pt-6 px-4 pb-4 fade-in font-sans relative">
+                        {timeLeft <= 0 && (
+                            <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 fade-in">
+                                <div className="bg-[#0a0a0a] border border-violet-500/30 p-12 rounded-[3rem] max-w-md w-full text-center shadow-2xl">
+                                    <div className="w-16 h-16 bg-violet-600/10 rounded-2xl flex items-center justify-center mx-auto mb-8"><LucideIcon name="ZapOff" size={32} color="#7c3aed" /></div>
+                                    <h2 className="text-2xl font-black uppercase italic mb-4 text-white">Session épuisée</h2>
+                                    <button onClick={() => setView('landing')} className="block w-full bg-white text-black py-4 rounded-xl font-bold text-sm shadow-xl active:scale-95 transition-all">Recharger mes accès</button>
+                                    <button onClick={() => firebase.signOut(firebase.auth)} className="mt-8 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white transition-colors">Se déconnecter</button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4 glass p-4 rounded-[2.5rem]">
+                            <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setView('landing')}>
+                                <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center font-black shadow-lg shadow-violet-500/30">A</div>
+                                <div className="leading-tight text-left">
+                                    <h1 className="font-bold text-xs uppercase tracking-widest">Dashboard</h1>
+                                    <p className="text-[10px] font-black text-violet-400 flex items-center gap-1 mt-0.5 uppercase"><span className="w-1 h-1 bg-violet-500 rounded-full animate-pulse"></span>{formatDisplayTime(timeLeft)} RESTANTS</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => {setView('app'); setSelectedCoach(null);}} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${view === 'app' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-gray-400 hover:bg-white/5'}`}>Analyseur</button>
+                                <button onClick={() => setView('coach')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${view === 'coach' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-gray-400 hover:bg-white/5'}`}>Coachs IA</button>
+                                <button onClick={() => firebase.signOut(firebase.auth)} className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><LucideIcon name="LogOut" size={16}/></button>
+                            </div>
+                        </div>
+
+                        <div className="max-w-6xl mx-auto min-h-[600px]">
+                            {view === 'app' && (
+                                <div className="grid lg:grid-cols-2 gap-8 h-full fade-in">
+                                    <div className="glass p-10 rounded-[3rem] flex flex-col relative overflow-hidden text-left shadow-2xl border-white/5">
+                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-violet-600"></div>
+                                        <h2 className="text-[10px] font-black mb-8 opacity-40 uppercase flex items-center gap-2 tracking-widest"><LucideIcon name="Activity" size={14}/> Décryptage Neural</h2>
+                                        <textarea value={flashInput} onChange={(e) => setFlashInput(e.target.value)} className="flex-1 bg-black/20 border border-white/5 rounded-[2rem] p-8 outline-none mb-8 resize-none focus:border-violet-500/40 text-lg placeholder:text-slate-800 text-white font-medium" placeholder="Collez le message reçu ici pour une analyse psychologique..." />
+                                        <button onClick={handleFlashAnalyze} disabled={isProcessing || !flashInput.trim() || timeLeft <= 0} className="bg-white text-black py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-[0.98] transition-all">{isProcessing ? "Analyse en cours..." : "Lancer l'Analyse"}</button>
+                                    </div>
+                                    <div className="glass rounded-[3rem] p-10 flex flex-col items-center justify-center text-center relative bg-white/2">
+                                        {!analysisResult ? (
+                                            <div className="opacity-20 flex flex-col items-center"><LucideIcon name="Cpu" size={64} color="#7c3aed" className="mb-6 animate-pulse" /><p className="text-[10px] uppercase font-black tracking-widest">Prêt pour l'analyse</p></div>
+                                        ) : (
+                                            <div className="space-y-6 w-full text-left fade-in">
+                                                <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
+                                                    <p className="text-[9px] font-black uppercase text-violet-400 mb-2 tracking-widest">Tonalité Détectée</p>
+                                                    <p className="text-xl font-bold tracking-tight">{analysisResult.tone}</p>
+                                                </div>
+                                                <div className="p-6 bg-white/5 rounded-2xl border border-white/5">
+                                                    <p className="text-[9px] font-black uppercase text-fuchsia-400 mb-2 tracking-widest">Intention Psychologique</p>
+                                                    <p className="text-xl font-bold tracking-tight">{analysisResult.intent}</p>
+                                                </div>
+                                                <div className="p-8 bg-emerald-500/10 border border-emerald-500/20 rounded-[2.5rem] shadow-xl relative">
+                                                    <p className="text-[9px] font-black uppercase text-emerald-400 mb-4 tracking-widest">Suggestion AELIIA</p>
+                                                    <p className="text-lg font-medium italic text-emerald-50 leading-relaxed">"{analysisResult.suggestion}"</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {view === 'coach' && !selectedCoach && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 fade-in">
+                                    {COACH_PROFILES.map(c => (
+                                        <div key={c.id} onClick={() => setSelectedCoach(c)} className="glass p-6 rounded-[3rem] cursor-pointer group hover:border-violet-500/50 transition-all flex flex-col shadow-xl">
+                                            <div className="relative overflow-hidden rounded-[2.5rem] mb-6 aspect-[3/4] shadow-2xl"><img src={c.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale-[20%] group-hover:grayscale-0"/></div>
+                                            <h3 className="font-bold text-xl mb-1 text-left">{c.name}</h3>
+                                            <p className={`text-[9px] uppercase font-black tracking-widest mb-4 italic text-left ${c.color}`}>{c.specialty}</p>
+                                            <div className="mt-auto flex items-center justify-between text-[10px] font-black text-violet-400"><span className="bg-violet-500/5 px-3 py-1 rounded-lg uppercase tracking-tighter">{c.consultations.toLocaleString()} SÉANCES</span><LucideIcon name="ChevronRight" size={16} /></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {view === 'coach' && selectedCoach && (
+                                <div className="glass rounded-[3rem] h-[700px] flex flex-col overflow-hidden fade-in max-w-4xl mx-auto shadow-2xl">
+                                    <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/2 backdrop-blur-xl">
+                                        <div className="flex items-center gap-6">
+                                            <button onClick={() => setSelectedCoach(null)} className="p-3 hover:bg-white/10 rounded-xl transition-all"><LucideIcon name="ArrowLeft" size={24}/></button>
+                                            <img src={selectedCoach.image} className="w-12 h-12 rounded-2xl object-cover border border-white/20 shadow-xl" />
+                                            <div className="text-left"><h3 className="font-black text-lg tracking-tight">{selectedCoach.name}</h3><p className="text-[9px] text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 font-bold"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>Disponible</p></div>
+                                        </div>
+                                        <div className="text-right"><p className="text-[9px] text-slate-500 uppercase font-black mb-1">Session active</p><p className="text-xl font-black text-violet-400 italic tracking-tighter">{formatDisplayTime(timeLeft)}</p></div>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-hide bg-black/20 text-left">
+                                        {chatHistory.map((m, i) => (
+                                            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[85%] p-5 rounded-[2rem] text-sm leading-relaxed ${m.role === 'user' ? 'bg-violet-600 text-white rounded-br-none shadow-lg' : 'bg-white/10 text-gray-200 border border-white/5 rounded-bl-none'}`}><p className="whitespace-pre-line leading-relaxed font-medium">{m.text}</p></div></div>
+                                        ))}
+                                        {isProcessing && (<div className="flex justify-start"><div className="bg-white/5 p-4 rounded-full flex gap-1"><div className="typing-dot"></div><div className="typing-dot"></div><div className="typing-dot"></div></div></div>)}
+                                        <div ref={chatEndRef}></div>
+                                    </div>
+                                    <div className="p-8 border-t border-white/5 bg-[#050505] flex gap-4">
+                                        <input value={inputMessage} onChange={e => setInputMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage()} className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-violet-500/30 text-sm font-medium shadow-inner text-white" placeholder={`Posez votre question à ${selectedCoach.name}...`} />
+                                        <button onClick={handleSendMessage} disabled={!inputMessage.trim() || isProcessing || timeLeft <= 0} className="p-4 bg-white text-black rounded-2xl hover:bg-violet-50 transition-all active:scale-90 disabled:opacity-20 shadow-xl"><LucideIcon name="Send" size={24}/></button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            return <LandingPage />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
