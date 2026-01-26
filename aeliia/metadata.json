@@ -1,0 +1,7 @@
+{
+  "name": "AELIIA",
+  "description": "Votre compagnon d'IA pour le bien-être mental et l'équilibre de vie.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
